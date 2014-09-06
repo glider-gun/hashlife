@@ -17,10 +17,10 @@ exit
 ;;;; cores
 
 (defstruct node
-  nw ne sw se (level -1 :type fixnum) (id -1 :type fixnum) population board (result (make-hash-table)))
+  nw ne sw se level id population board (result (make-hash-table)))
 
 (defstruct (board (:constructor make-board-raw))
-  root cache origin (next-id -1 :type fixnum) empty-nodes zero one)
+  root cache origin next-id empty-nodes zero one)
 
 (defun make-board ()
   (let ((b (make-board-raw :cache (make-hash-table :test #'equalp)
