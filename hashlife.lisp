@@ -340,7 +340,8 @@ n6 n7 n8"
 	(mouse-state (make-hash-table))
 	(prevpos nil)
 	(update t)
-	(step-size 1))
+	(step-size 1)
+	(generation 0))
 
     ;; initial pattern
 
@@ -425,7 +426,9 @@ n6 n7 n8"
 		 (sdl:clear-display sdl:*black*)
 		 (when update
 		     (board-step *board* step-size)
-		     (board-trim *board*))
+		     (board-trim *board*)
+		     (incf generation step-size)
+		     (sdl:set-caption (format nil "life: generation ~A" generation) nil))
 		 (loop for pos in (board-get-all *board* (get-rect)) do
 		      (draw-cell (car pos) (cadr pos) sdl:*white*))
 		 (sdl:update-display)))))))
