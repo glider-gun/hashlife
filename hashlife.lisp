@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash # -*-Lisp-*-
 #|
 # http://speely.wordpress.com/2010/11/27/writing-scripts-with-common-lisp/ 
 exec sbcl --dynamic-space-size 4Gb --script $0 # hashlife consumes much memory
