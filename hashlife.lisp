@@ -328,21 +328,44 @@ n6 n7 n8"
     (load quicklisp-init)))
 (ql:quickload :lispbuilder-sdl)
 
+(defun reverse-shape-v (shape)
+  (reverse shape))
+
+(defun reverse-shape-h (shape)
+  (mapcar #'reverse shape))
+
+(defun reverse-shape-vh (shape)
+  (mapcar #'reverse (reverse shape)))
+
+(defun rotate-shape (shape)
+  "rotate shape to right by 90 degrees"
+  (mapcar (lambda (l) (coerce l 'string))
+	  (mapcar #'nreverse
+		 (apply #'mapcar #'list
+			(loop for l in shape collect
+			     (loop for c across l collect c))))))
+
+(defun board-put-shape (b shape x0 y0)
+  (loop for y from y0
+     for l in shape
+     do (loop for x from x0
+	   for c across l
+	   do (board-set b (char= c #\O) x y))))
+
 (defparameter *board* nil)
 
-(defun life ()
+(defun life (world-width world-height scale shapes)
   (setf *board* (make-board))
-  (let ((scale 1)
-	(w 1800)
-	(h 800)
-	(origx -100)
-	(origy -400)
+  (let ((scale scale)
+	(w (* world-width scale))
+	(h (* world-height scale))
+	(origx 0)
+	(origy 0)
 	(mouse-state (make-hash-table))
 	(prevpos nil)
 	(update t)
 	(step-size 1)
 	(generation 0))
-
     ;; initial pattern
 
     ;; (mapcar (lambda (pos) (board-set *board* t (car pos) (cadr pos))) '((0 -1) (1 -1) (-1 0) (0 0) (0 1))) ; r pentomino
@@ -350,16 +373,18 @@ n6 n7 n8"
     ;; (mapcar (lambda (pos) (board-set *board* t (car pos) (cadr pos))) '((50 40) (50 41) (50 42) (50 43) (50 44) (50 45) (50 46) (50 47) (50 48) (50 49))) ; pentadecathlon
     ;; (dotimes (i (floor (/ (* w h) scale scale 3)))
     ;; 	     (board-set *board* t (random (/ w scale)) (random (/ h scale))))
-    (loop for y from 0			;puffer train http://www.argentum.freeserve.co.uk/lex_p.htm#puffertrain
-          for l in '(".OOO...........OOO"
-    		     "O..O..........O..O"
-    		     "...O....OOO......O"
-    		     "...O....O..O.....O"
-    		     "..O....O........O.")
-    	 do (loop for x from 0
-    		  for c across l
-    		 do (board-set *board* (char= c #\O) (- y) x)))
-	 
+    ;; (loop for y from 0			;puffer train http://www.argentum.freeserve.co.uk/lex_p.htm#puffertrain
+    ;;       for l in '(".OOO...........OOO"
+    ;; 		     "O..O..........O..O"
+    ;; 		     "...O....OOO......O"
+    ;; 		     "...O....O..O.....O"
+    ;; 		     "..O....O........O.")
+    ;; 	 do (loop for x from 0
+    ;; 		  for c across l
+    ;; 		 do (board-set *board* (char= c #\O) (- y) x)))
+    ;; (board-put-shape *board* (rotate-shape *puffer-train*) 0 0)
+    (loop for (x y s) in shapes do
+	 (board-put-shape *board* s x y))
 	 
     (labels ((get-rect ()
 	       (list origx origy (+ origx (floor w scale)) (+ origy (floor h scale))))
@@ -381,13 +406,19 @@ n6 n7 n8"
 
 	(sdl:with-events ()
 	  (:quit-event () t)
-	  (:key-down-event (:key key)
+	  (:key-down-event (:key key :mod m)
+			   ;; (princ key) (finish-output)
 			   (case key
 			     (:sdl-key-q    (sdl:push-quit-event))
 			     (:sdl-key-c    (board-clear *board*))
-			     (:sdl-key-up   (setf step-size (* step-size 2)))
-			     (:sdl-key-down (when (not (= step-size 1))
-					      (setf step-size (/ step-size 2))))))
+			     (:sdl-key-minus (when (not (= step-size 1))
+					      (setf step-size (/ step-size 2))))
+			     (:sdl-key-equals (setf step-size (* step-size 2)))
+			     (:sdl-key-up   (decf origy 10))
+			     (:sdl-key-down (incf origy 10))
+			     (:sdl-key-right (incf origx 10))
+			     (:sdl-key-left (decf origx 10))
+			     ))
 	  (:mouse-button-down-event (:button button :x x :y y)
 				    (setf (gethash button mouse-state) t
 					  prevpos (board-coodinate x y))
@@ -435,5 +466,146 @@ n6 n7 n8"
 
 (compile 'life)
 
-#+sbcl (sb-int:with-float-traps-masked (:invalid) (life))
-#-sbcl (life)
+(defparameter *puffer-train*
+  '(".OOO...........OOO"
+    "O..O..........O..O"
+    "...O....OOO......O"
+    "...O....O..O.....O"
+    "..O....O........O."))
+
+(defparameter gun-lu
+              '(
+                ".................................."
+                "...............OOO..............OO"
+                "...............O...O............OO"
+                "...............O....O............."
+                "................O...O............."
+                ".................................."
+                ".OO.............O...O............."
+                ".OO............O....O............."
+                "...............O...O............OO"
+                "...............OOO..............OO"
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                "..O.....O........................."
+                ".OOO...OOO........................"
+                "OO.O...O.OO......................."
+                ".................................."
+                ".................................."
+                "...O...O.........................."
+                "...O...O.........................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".OO.....OO........................"
+                ".OO.....OO........................"
+                ))
+
+;; 新しい銃 右下方向に発射  (発射のタイミングがちょっと違う)
+(defparameter gun-rd
+              '(
+                "........................OO.....OO."
+                "........................OO.....OO."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".......................OO.O...O.OO"
+                ".......................O..O...O..O"
+                "........................OOO...OOO."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................................."
+                ".................O................"
+                "OO...............OO..............."
+                "OO................OO.............."
+                ".............OO..OO............OO."
+                "...............................OO."
+                ".................................."
+                ".................................."
+                ".............OO..OO..............."
+                "OO................OO.............."
+                "OO...............OO..............."
+                ".................O................"
+                ))
+
+;; 新しい銃 右上方向に発射 (gun-rd を上下反転したもの)
+(defparameter gun-ru (reverse-shape-v gun-rd))
+
+;; 宇宙船を食うやつ
+(defparameter eater
+              '(
+                "OO.."
+                "O.O."
+                "..O."
+                "..OO"
+                ))
+
+;; ブリンカー
+(defparameter blinker
+              '("..O.."
+                "..O.."
+                "..O.."
+                ))
+
+(defparameter *r-pentomino*
+  '(".OO"
+    "OO."
+    ".O."))
+
+(defparameter *glider*
+  '("..O"
+    "O.O"
+    ".OO"))
+
+(defparameter *pentadecathlon*
+  '("OOOOOOOOOO"))
+
+(defun run ()
+    ;; ;; r-pentomino
+    ;; (life 400 400 3 (list (list 200 200 *r-pentomino*)))
+    ;; ;; glider
+    ;; (life 100 100 3 (list (list 0 0 *glider*)))
+    ;; ;; gliderguns
+    ;; (life 240 160 3
+    ;; 	  `((20 10 ,gun-rd)
+    ;; 	    (23 101 ,gun-ru)
+    ;; 	    (96 101 ,gun-lu)
+    ;; 	    (220 75 ,eater)
+    ;; 	    ))
+    ;; puffer-train
+    (life 1900 400 1 (list (list 200 200
+				 (rotate-shape *puffer-train*))))
+    ;; ;; pentadecathlon
+    ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
+    )
+
+(defun main ()
+    #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
+    #-sbcl run
+    )
+
+(main)
