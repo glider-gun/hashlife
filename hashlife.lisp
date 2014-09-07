@@ -174,6 +174,10 @@ n6 n7 n8"
 	(n3 n) (n4 n) (n5 n)
 	(n6 n) (n7 n) (n8 n)))
 
+(defun node-children (n)
+  (list (n0 n) (n2 n)
+	(n6 n) (n8 n)))
+
 (defun life-rule (self count)
   (if (if self
 	  (member count '(2 3))
@@ -239,6 +243,32 @@ n6 n7 n8"
 
 (defun board-trim (b)
   (while (board-trim% b)))
+
+(defun board-collect (b)
+  (board-trim b)
+  (let ((old  (board-cache b)))
+    (setf (board-empty-nodes b) (list (board-zero b))
+	  (board-cache b) (make-hash-table :test #'equalp))
+    (labels ((canonicalize (n to)
+	       (if (< (node-id n) 16)
+		   n
+		   (let ((key (mapcar #'node-id (node-children n))))
+		     (setf (gethash key to)
+			   (board-get-node b
+			      (canonicalize (node-nw n) to)
+			      (canonicalize (node-ne n) to)
+			      (canonicalize (node-sw n) to)
+			      (canonicalize (node-se n) to)))))))
+      (loop for i below 16 do
+	   (let ((key (list (if (logbitp 0 i) 1 0)
+			    (if (logbitp 1 i) 1 0)
+			    (if (logbitp 2 i) 1 0)
+			    (if (logbitp 3 i) 1 0))))
+	     (setf (gethash key (board-cache b))
+		   (gethash key old))))
+      (setf (board-root b)
+	    (canonicalize (board-root b) (board-cache b))))))
+
 
 (defun board-double (b)
   (let ((n (board-root b)))
@@ -458,7 +488,9 @@ n6 n7 n8"
 		 (sdl:clear-display sdl:*black*)
 		 (when update
 		     (board-step *board* step-size)
-		     (board-trim *board*)
+		     (if (> (node-level (board-root *board*)) 20)
+		       (board-collect *board*)
+		       (board-trim *board*))
 		     (incf generation step-size)
 		     (sdl:set-caption (format nil "life: generation ~A" generation) nil))
 		 (loop for pos in (board-get-all *board* (get-rect)) do
