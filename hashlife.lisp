@@ -403,10 +403,11 @@ n6 n7 n8"
       (sdl:with-init ()
 	(sdl:window w h :title-caption "life")
 	(setf (sdl:frame-rate) 60)
+	(sdl:enable-key-repeat 500 20)
 
 	(sdl:with-events ()
 	  (:quit-event () t)
-	  (:key-down-event (:key key :mod m)
+	  (:key-down-event (:key key)
 			   ;; (princ key) (finish-output)
 			   (case key
 			     (:sdl-key-q    (sdl:push-quit-event))
