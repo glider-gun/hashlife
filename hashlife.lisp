@@ -624,14 +624,14 @@ n6 n7 n8"
     ;; (life 100 100 3 (list (list 0 0 *glider*)))
     ;; ;; gliderguns
     ;; (life 240 160 3
-    ;; 	  `((20 10 ,gun-rd)
-    ;; 	    (23 101 ,gun-ru)
-    ;; 	    (96 101 ,gun-lu)
-    ;; 	    (220 75 ,eater)
-    ;; 	    ))
+    ;;       `((20 10 ,gun-rd)
+    ;;         (23 101 ,gun-ru)
+    ;;         (96 101 ,gun-lu)
+    ;;         (220 75 ,eater)
+    ;;         ))
     ;; puffer-train
     (life 1900 400 1 (list (list 200 200
-				 (rotate-shape *puffer-train*))))
+                                 (rotate-shape *puffer-train*))))
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
     )
