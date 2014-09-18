@@ -72,7 +72,7 @@ exit
   (cond ((or (< x 0) (< y 0)
 	     (>= x (node-width n)) (>= y (node-width n))) 0)
 	((zerop (node-level n)) (node-id n))
-	(t (let ((half (/ (node-width n) 2)))
+	(t (let ((half (ash (node-width n) -1)))
 	     (if (< x half)
 		 (if (< y half)
 		     (node-get (node-nw n) x y)
