@@ -17,7 +17,7 @@ exit
 ;;;; cores
 
 (defstruct node
-  nw ne sw se level id population board (result (make-hash-table)))
+  nw ne sw se level id population board result)
 
 (defstruct (board (:constructor make-board-raw))
   root cache origin next-id empty-nodes zero one)
@@ -39,7 +39,8 @@ exit
 			    :nw (if (logbitp 0 i) one zero)
 			    :ne (if (logbitp 1 i) one zero)
 			    :sw (if (logbitp 2 i) one zero)
-			    :se (if (logbitp 3 i) one zero))))
+			    :se (if (logbitp 3 i) one zero)
+			    :result (list nil))))
       (setf (board-zero b)        zero
 	    (board-one  b)        one
 	    (board-next-id b)     18
@@ -52,7 +53,8 @@ exit
     (unless (gethash key (board-cache b))
       (setf (gethash key (board-cache b))
 	    (make-node :nw nw :ne ne :sw sw :se se :level (1+ (node-level nw))
-		       :id (incf (board-next-id b)) :population (reduce #'+ (mapcar #'node-population (list nw ne sw se))) :board b)))
+		       :id (incf (board-next-id b)) :population (reduce #'+ (mapcar #'node-population (list nw ne sw se))) :board b
+		       :result (loop for i below (1+ (node-level nw)) collect nil))))
     (gethash key (board-cache b))))
 
 (defun board-get-empty (b level)
@@ -214,10 +216,11 @@ n6 n7 n8"
 	(t (error "something went wrong"))))
 
 (defun node-next-center (n step)
-  (unless (gethash step (node-result n))
-    (setf (gethash step (node-result n))
-	  (node-next-center% n step)))
-  (gethash step (node-result n)))
+  (let ((ind (integer-length step)))	;step == 2^(ind-1), or zero
+    (unless (nth ind (node-result n))
+      (setf (nth ind (node-result n))
+	    (node-next-center% n step)))
+    (nth ind (node-result n))))
       
 
 (defun board-trim% (b)
