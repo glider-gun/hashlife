@@ -23,16 +23,16 @@ exit
   root cache origin next-id empty-nodes zero one)
 
 (defun make-board ()
-  (let ((b (make-board-raw :cache (make-hash-table :test #'equalp)
+  (let ((b (make-board-raw :cache (make-hash-table :test #'eql)
 			   :origin (cons 0 0))))
     (let ((zero (make-node :level 0 :id 0 :population 0 :board b))
 	  (one  (make-node :level 0 :id 1 :population 1 :board b))
 	  (cache (board-cache b)))
       (loop for i below 16 do
-	   (setf (gethash (list (if (logbitp 0 i) 1 0)
-				(if (logbitp 1 i) 1 0)
-				(if (logbitp 2 i) 1 0)
-				(if (logbitp 3 i) 1 0)) cache)
+	   (setf (gethash (my4hash (if (logbitp 0 i) 1 0)
+				   (if (logbitp 1 i) 1 0)
+				   (if (logbitp 2 i) 1 0)
+				   (if (logbitp 3 i) 1 0)) cache)
 		 (make-node :level 1 :id (+ i 2)
 			    :population (logcount i)
 			    :board b
@@ -48,12 +48,12 @@ exit
       b)))
 
 (defun board-get-node (b nw ne sw se)
-  (let ((ids (mapcar #'node-id (list nw ne sw se))))
-    (unless (gethash ids (board-cache b))
-      (setf (gethash ids (board-cache b))
+  (let ((key (my4hash (node-id nw) (node-id ne) (node-id sw) (node-id se))))
+    (unless (gethash key (board-cache b))
+      (setf (gethash key (board-cache b))
 	    (make-node :nw nw :ne ne :sw sw :se se :level (1+ (node-level nw))
 		       :id (incf (board-next-id b)) :population (reduce #'+ (mapcar #'node-population (list nw ne sw se))) :board b)))
-    (gethash ids (board-cache b))))
+    (gethash key (board-cache b))))
 
 (defun board-get-empty (b level)
   (declare (fixnum level))
@@ -197,7 +197,7 @@ n6 n7 n8"
 				 (loop for x in '(5 6 9 10) collect
 				      (count one (loop for dx in '(-5 -4 -3 -1 1 3 4 5) collect
 						      (nth (+ x dx) l)))))))
-	       (gethash ids (board-cache b)))
+	       (gethash (apply #'my4hash ids) (board-cache b)))
 	     (let* ((b (node-board n))
 		    (halfstep (ash (node-step-size n) -1))
 		    (halfstepp (>= step halfstep))
@@ -246,9 +246,9 @@ n6 n7 n8"
 
 (defun board-collect (b)
   (board-trim b)
-  (let ((old  (board-cache b)))
+  (let ((old (board-cache b)))
     (setf (board-empty-nodes b) (list (board-zero b))
-	  (board-cache b) (make-hash-table :test #'equalp))
+	  (board-cache b) (make-hash-table :test #'eql))
     (labels ((canonicalize (n to)
 	       (if (< (node-id n) 16)
 		   n
@@ -260,10 +260,10 @@ n6 n7 n8"
 			      (canonicalize (node-sw n) to)
 			      (canonicalize (node-se n) to)))))))
       (loop for i below 16 do
-	   (let ((key (list (if (logbitp 0 i) 1 0)
-			    (if (logbitp 1 i) 1 0)
-			    (if (logbitp 2 i) 1 0)
-			    (if (logbitp 3 i) 1 0))))
+	   (let ((key (my4hash (if (logbitp 0 i) 1 0)
+			       (if (logbitp 1 i) 1 0)
+			       (if (logbitp 2 i) 1 0)
+			       (if (logbitp 3 i) 1 0))))
 	     (setf (gethash key (board-cache b))
 		   (gethash key old))))
       (setf (board-root b)
@@ -279,7 +279,7 @@ n6 n7 n8"
 	  (setf (board-root b)
 		(if (zerop (node-population n))
 		    (board-get-empty b 1)
-		    (gethash '(0 0 0 1) (board-cache b)))))
+		    (gethash (my4hash 0 0 0 1) (board-cache b)))))
 	(let ((e (board-get-empty b (1- (node-level (board-root b))))))
 	  (decf (car (board-origin b)) (ash (node-width n) -1))
 	  (decf (cdr (board-origin b)) (ash (node-width n) -1))
@@ -635,6 +635,20 @@ n6 n7 n8"
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
     )
+
+;; (defun myhash-combine (seed v)
+;;   "do hash_combine of boost (though that's for 32 bit integer...)"
+;;   (declare (fixnum v seed)
+;; 	   (optimize (safety 0)))
+;;   (logxor seed (+ (the fixnum (sxhash v)) #x9e3779b99e3779b (the fixnum (ash seed 6)) (the fixnum (ash seed -2)))))
+
+;; (defun my4hash (a b c d)
+;;   (declare (fixnum a b c d)
+;; 	   (optimize (safety 0)))
+;;   (myhash-combine (myhash-combine (myhash-combine (myhash-combine 0 a) b) c) d))
+
+(defun my4hash (a b c d)
+  (sxhash (list a b c d)))
 
 (defun main ()
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
