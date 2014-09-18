@@ -356,7 +356,8 @@ n6 n7 n8"
                                        (user-homedir-pathname))))
   (when (probe-file quicklisp-init)
     (load quicklisp-init)))
-(ql:quickload :lispbuilder-sdl)
+(let ((*standard-output* (make-broadcast-stream)))
+  (ql:quickload :lispbuilder-sdl))
 
 (defun reverse-shape-v (shape)
   (reverse shape))
