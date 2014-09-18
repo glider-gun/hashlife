@@ -83,7 +83,7 @@ exit
       
 (defun node-get-list (n origx origy &optional rect)
   (let ((width (node-width n))
-	(half (/ (node-width n) 2)))
+	(half (ash (node-width n) -1)))
     (when rect
       (destructuring-bind (x0 y0 x1 y1) rect
 	(when (or (< x1 origx) (< y1 origy)
@@ -234,8 +234,8 @@ n6 n7 n8"
 	      (pos (position pop (mapcar #'node-population subquads))))
 	 (when pos
 	   (setf (board-root b) (nth pos subquads))
-	   (incf (car (board-origin b)) (* (mod   pos 3) (/ (node-width (board-root b)) 2)))
-	   (incf (cdr (board-origin b)) (* (floor pos 3) (/ (node-width (board-root b)) 2)))))))))
+	   (incf (car (board-origin b)) (* (mod   pos 3) (ash (node-width (board-root b)) -1)))
+	   (incf (cdr (board-origin b)) (* (floor pos 3) (ash (node-width (board-root b)) -1)))))))))
 
 (defmacro while (pred &body body)
   `(loop (unless ,pred (return))
@@ -281,8 +281,8 @@ n6 n7 n8"
 		    (board-get-empty b 1)
 		    (gethash '(0 0 0 1) (board-cache b)))))
 	(let ((e (board-get-empty b (1- (node-level (board-root b))))))
-	  (decf (car (board-origin b)) (/ (node-width n) 2))
-	  (decf (cdr (board-origin b)) (/ (node-width n) 2))
+	  (decf (car (board-origin b)) (ash (node-width n) -1))
+	  (decf (cdr (board-origin b)) (ash (node-width n) -1))
 	  (setf (board-root b)
 		(board-get-node b (board-get-node b e e e (node-nw n))
 				(board-get-node b e e (node-ne n) e)
