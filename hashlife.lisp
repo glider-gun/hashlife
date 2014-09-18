@@ -22,6 +22,10 @@ exit
 (defstruct (board (:constructor make-board-raw))
   root cache origin next-id empty-nodes zero one)
 
+
+(defun hash4 (a b c d)
+  (sxhash (list a b c d)))
+
 (defun make-board ()
   (let ((b (make-board-raw :cache (make-hash-table :test #'eql)
 			   :origin (cons 0 0))))
@@ -29,7 +33,7 @@ exit
 	  (one  (make-node :level 0 :id 1 :population 1 :board b))
 	  (cache (board-cache b)))
       (loop for i below 16 do
-	   (setf (gethash (my4hash (if (logbitp 0 i) 1 0)
+	   (setf (gethash (hash4 (if (logbitp 0 i) 1 0)
 				   (if (logbitp 1 i) 1 0)
 				   (if (logbitp 2 i) 1 0)
 				   (if (logbitp 3 i) 1 0)) cache)
@@ -49,7 +53,7 @@ exit
       b)))
 
 (defun board-get-node (b nw ne sw se)
-  (let ((key (my4hash (node-id nw) (node-id ne) (node-id sw) (node-id se))))
+  (let ((key (hash4 (node-id nw) (node-id ne) (node-id sw) (node-id se))))
     (unless (gethash key (board-cache b))
       (setf (gethash key (board-cache b))
 	    (make-node :nw nw :ne ne :sw sw :se se :level (1+ (node-level nw))
@@ -199,7 +203,7 @@ n6 n7 n8"
 				 (loop for x in '(5 6 9 10) collect
 				      (count one (loop for dx in '(-5 -4 -3 -1 1 3 4 5) collect
 						      (nth (+ x dx) l)))))))
-	       (gethash (apply #'my4hash ids) (board-cache b)))
+	       (gethash (apply #'hash4 ids) (board-cache b)))
 	     (let* ((b (node-board n))
 		    (halfstep (ash (node-step-size n) -1))
 		    (halfstepp (>= step halfstep))
@@ -263,7 +267,7 @@ n6 n7 n8"
 			      (canonicalize (node-sw n) to)
 			      (canonicalize (node-se n) to)))))))
       (loop for i below 16 do
-	   (let ((key (my4hash (if (logbitp 0 i) 1 0)
+	   (let ((key (hash4 (if (logbitp 0 i) 1 0)
 			       (if (logbitp 1 i) 1 0)
 			       (if (logbitp 2 i) 1 0)
 			       (if (logbitp 3 i) 1 0))))
@@ -282,7 +286,7 @@ n6 n7 n8"
 	  (setf (board-root b)
 		(if (zerop (node-population n))
 		    (board-get-empty b 1)
-		    (gethash (my4hash 0 0 0 1) (board-cache b)))))
+		    (gethash (hash4 0 0 0 1) (board-cache b)))))
 	(let ((e (board-get-empty b (1- (node-level (board-root b))))))
 	  (decf (car (board-origin b)) (ash (node-width n) -1))
 	  (decf (cdr (board-origin b)) (ash (node-width n) -1))
@@ -496,7 +500,7 @@ n6 n7 n8"
 		       (board-collect *board*)
 		       (board-trim *board*))
 		     (incf generation step-size)
-		     (sdl:set-caption (format nil "life: generation ~A" generation) nil))
+		     (sdl:set-caption (format nil "life: generation ~A, step 2^~A" generation (1- (integer-length step-size))) nil))
 		 (loop for pos in (board-get-all *board* (get-rect)) do
 		      (draw-cell (car pos) (cadr pos) sdl:*white*))
 		 (sdl:update-display)))))))
@@ -640,19 +644,6 @@ n6 n7 n8"
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
     )
 
-;; (defun myhash-combine (seed v)
-;;   "do hash_combine of boost (though that's for 32 bit integer...)"
-;;   (declare (fixnum v seed)
-;; 	   (optimize (safety 0)))
-;;   (logxor seed (+ (the fixnum (sxhash v)) #x9e3779b99e3779b (the fixnum (ash seed 6)) (the fixnum (ash seed -2)))))
-
-;; (defun my4hash (a b c d)
-;;   (declare (fixnum a b c d)
-;; 	   (optimize (safety 0)))
-;;   (myhash-combine (myhash-combine (myhash-combine (myhash-combine 0 a) b) c) d))
-
-(defun my4hash (a b c d)
-  (sxhash (list a b c d)))
 
 (defun main ()
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
