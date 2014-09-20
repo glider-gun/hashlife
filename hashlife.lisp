@@ -500,7 +500,7 @@ n6 n7 n8"
 		       (board-collect *board*)
 		       (board-trim *board*))
 		     (incf generation step-size)
-		     (sdl:set-caption (format nil "life: generation ~A, step 2^~A" generation (1- (integer-length step-size))) nil))
+		     (sdl:set-caption (format nil "life: generation ~A, step 2^~A, population: ~A" generation (1- (integer-length step-size)) (node-population (board-root *board*))) nil))
 		 (loop for pos in (board-get-all *board* (get-rect)) do
 		      (draw-cell (car pos) (cadr pos) sdl:*white*))
 		 (sdl:update-display)))))))
