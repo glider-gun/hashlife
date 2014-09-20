@@ -404,23 +404,7 @@ n6 n7 n8"
 	(update t)
 	(step-size 1)
 	(generation 0))
-    ;; initial pattern
 
-    ;; (mapcar (lambda (pos) (board-set *board* t (car pos) (cadr pos))) '((0 -1) (1 -1) (-1 0) (0 0) (0 1))) ; r pentomino
-    ;; (mapcar (lambda (pos) (board-set *board* t (car pos) (cadr pos))) '((0 0) (0 -1) (-1 -2) (-1 0) (-2 0))) ; glider
-    ;; (mapcar (lambda (pos) (board-set *board* t (car pos) (cadr pos))) '((50 40) (50 41) (50 42) (50 43) (50 44) (50 45) (50 46) (50 47) (50 48) (50 49))) ; pentadecathlon
-    ;; (dotimes (i (floor (/ (* w h) scale scale 3)))
-    ;; 	     (board-set *board* t (random (/ w scale)) (random (/ h scale))))
-    ;; (loop for y from 0			;puffer train http://www.argentum.freeserve.co.uk/lex_p.htm#puffertrain
-    ;;       for l in '(".OOO...........OOO"
-    ;; 		     "O..O..........O..O"
-    ;; 		     "...O....OOO......O"
-    ;; 		     "...O....O..O.....O"
-    ;; 		     "..O....O........O.")
-    ;; 	 do (loop for x from 0
-    ;; 		  for c across l
-    ;; 		 do (board-set *board* (char= c #\O) (- y) x)))
-    ;; (board-put-shape *board* (rotate-shape *puffer-train*) 0 0)
     (loop for (x y s) in shapes do
 	 (board-put-shape *board* s x y))
 	 
