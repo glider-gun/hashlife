@@ -19,16 +19,22 @@ exit
 (defstruct node
   nw ne sw se level id population board result)
 
-(defstruct (board (:constructor make-board-raw))
+(defstruct (board)
   root cache origin next-id empty-nodes zero one)
-
 
 (defun hash4 (a b c d)
   (sxhash (list a b c d)))
 
-(defun make-board ()
-  (let ((b (make-board-raw :cache (make-hash-table :test #'eql)
-			   :origin (cons 0 0))))
+(defun bits4 (n)
+  (list
+   (if (logbitp 0 n) 1 0)
+   (if (logbitp 1 n) 1 0)
+   (if (logbitp 2 n) 1 0)
+   (if (logbitp 3 n) 1 0)))
+
+(defun init-board ()
+  (let ((b (make-board :cache (make-hash-table :test #'eql)
+		       :origin (cons 0 0))))
     (let ((zero (make-node :level 0 :id 0 :population 0 :board b))
 	  (one  (make-node :level 0 :id 1 :population 1 :board b))
 	  (cache (board-cache b)))
@@ -57,8 +63,10 @@ exit
     (unless (gethash key (board-cache b))
       (setf (gethash key (board-cache b))
 	    (make-node :nw nw :ne ne :sw sw :se se :level (1+ (node-level nw))
-		       :id (incf (board-next-id b)) :population (reduce #'+ (mapcar #'node-population (list nw ne sw se))) :board b
-		       :result (loop for i below (1+ (node-level nw)) collect nil))))
+		       :id (incf (board-next-id b))
+		       :population (reduce #'+ (mapcar #'node-population (list nw ne sw se)))
+		       :board b
+		       :result (coerce (loop for i below (1+ (node-level nw)) collect nil) 'vector))))
     (gethash key (board-cache b))))
 
 (defun board-get-empty (b level)
@@ -221,10 +229,10 @@ n6 n7 n8"
 
 (defun node-next-center (n step)
   (let ((ind (integer-length step)))	;step == 2^(ind-1), or zero
-    (unless (nth ind (node-result n))
-      (setf (nth ind (node-result n))
+    (unless (aref (node-result n) ind)
+      (setf (aref (node-result n) ind)
 	    (node-next-center% n step)))
-    (nth ind (node-result n))))
+    (aref (node-result n) ind)))
       
 
 (defun board-trim% (b)
@@ -349,7 +357,7 @@ n6 n7 n8"
     (setf (board-root b) (node-next-center (board-root b) step))))
 
 #|
-(defparameter *b* (make-board))
+(defparameter *b* (init-board))
 (board-clear *b*) (mapcar (lambda (pos) (board-set *b* t (car pos) (cadr pos))) '((0 0) (0 -1) (-1 -2) (-1 0) (-2 0))) (board-print-rect *b* '(-2 -2 2 2))
 (board-step *b* 4)(board-print-rect *b* '(-2 -2 2 2))
 (board-step *b* 4)(board-print-rect *b* '(-2 -2 2 2))
@@ -393,7 +401,7 @@ n6 n7 n8"
 (defparameter *board* nil)
 
 (defun life (world-width world-height scale shapes)
-  (setf *board* (make-board))
+  (setf *board* (init-board))
   (let ((scale scale)
 	(w (* world-width scale))
 	(h (* world-height scale))
