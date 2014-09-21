@@ -652,7 +652,7 @@ n6 n7 n8"
 
 (defun main ()
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
-    #-sbcl run
+    #-sbcl (run)
     )
 
 (main)
