@@ -16,6 +16,7 @@ exit
 
 ;;;; cores
 
+;; structs and utilities
 (defstruct node
   nw ne sw se level id population board result)
 
@@ -25,13 +26,17 @@ exit
 (defun hash4 (a b c d)
   (sxhash (list a b c d)))
 
-(defun bits4 (n)
-  (list
-   (if (logbitp 0 n) 1 0)
-   (if (logbitp 1 n) 1 0)
-   (if (logbitp 2 n) 1 0)
-   (if (logbitp 3 n) 1 0)))
+(defun life-rule (self count)
+  (if (if self
+	  (member count '(2 3))
+	  (= count 3))
+      1 0))
 
+(defmacro while (pred &body body)
+  `(loop (unless ,pred (return))
+      ,@body))
+
+;; functions for node/board
 (defun init-board ()
   (let ((b (make-board :cache (make-hash-table :test #'eql)
 		       :origin (cons 0 0))))
@@ -69,72 +74,16 @@ exit
 		       :result (coerce (loop for i below (1+ (node-level nw)) collect nil) 'vector))))
     (gethash key (board-cache b))))
 
-(defun board-get-empty (b level)
+(defun board-get-empty-node (b level)
   (declare (fixnum level))
   (if (< level (the fixnum (length (board-empty-nodes b))))
       (nth level (board-empty-nodes b))
-      (let ((e (board-get-empty b (1- level))))
+      (let ((e (board-get-empty-node b (1- level))))
 	(board-get-node b e e e e))))
 
-(defun node-width (n)
-  (ash 1 (node-level n)))
+;; subnode accessor shorthands
 
-(defun node-step-size (n)
-  (ash 1 (- (node-level n) 2)))
-
-(defun node-get (n x y)
-  (cond ((or (< x 0) (< y 0)
-	     (>= x (node-width n)) (>= y (node-width n))) 0)
-	((zerop (node-level n)) (node-id n))
-	(t (let ((half (ash (node-width n) -1)))
-	     (if (< x half)
-		 (if (< y half)
-		     (node-get (node-nw n) x y)
-		     (node-get (node-sw n) x (- y half)))
-		 (if (< y half)
-		     (node-get (node-ne n) (- x half) y)
-		     (node-get (node-se n) (- x half) (- y half))))))))
-      
-(defun node-get-list (n origx origy &optional rect)
-  (let ((width (node-width n))
-	(half (ash (node-width n) -1)))
-    (when rect
-      (destructuring-bind (x0 y0 x1 y1) rect
-	(when (or (< x1 origx) (< y1 origy)
-		  (<= (+ origx width) x0) (<= (+ origy width) y0))
-	  (return-from node-get-list nil))))
-    (cond
-      ((zerop (node-level n))
-       (if (= 1 (node-id n))
-	   (list (list origx origy))
-	   nil))
-      (t (append
-	  (node-get-list (node-nw n) origx origy rect)
-	  (node-get-list (node-ne n) (+ origx half) origy rect)
-	  (node-get-list (node-sw n) origx (+ origy half) rect)
-	  (node-get-list (node-se n) (+ origx half) (+ origy half) rect))))))
-
-(defun node-set (n new origx origy x y)
-  (let ((width (node-width n))
-	(half  (ash (node-width n) -1))
-	(b  (node-board n)))
-    (if (or (< x origx) (< y origy)
-	    (<= (+ origx width) x) (<= (+ origy width) y))
-	(error "node-set out of range: ~a" (list x y))
-	(if (zerop (node-level n))
-	    (if new (board-one b) (board-zero b))
-	    (let ((nw (node-nw n))
-		  (ne (node-ne n))
-		  (sw (node-sw n))
-		  (se (node-se n)))
-	      (if (< y (+ origy half))
-		  (if (< x (+ origx half))
-		      (board-get-node b (node-set nw new origx origy x y) ne sw se)
-		      (board-get-node b nw (node-set ne new (+ origx half) origy x y) sw se))
-		  (if (< x (+ origx half))
-		      (board-get-node b nw ne (node-set sw new origx (+ origy half) x y) se)
-		      (board-get-node b nw ne sw (node-set se new (+ origx half) (+ origy half) x y)))))))))
-
+; quarter quarter cells
 (defmacro defnn__ ()
   "define sub-sub-quad accessors:
 nn00 nn01 nn02 nn03
@@ -157,6 +106,7 @@ nn12 nn13 nn14 nn15"
 	(nn08 n) (nn09 n) (nn10 n) (nn11 n)
 	(nn12 n) (nn13 n) (nn14 n) (nn15 n)))
 
+; quarter cells
 (defun node-get-subquad (n x y)
   (let ((b (node-board n)))
     (case y
@@ -192,11 +142,65 @@ n6 n7 n8"
   (list (n0 n) (n2 n)
 	(n6 n) (n8 n)))
 
-(defun life-rule (self count)
-  (if (if self
-	  (member count '(2 3))
-	  (= count 3))
-      1 0))
+;; node functions
+(defun node-width (n)
+  (ash 1 (node-level n)))
+
+(defun node-step-size (n)
+  (ash 1 (- (node-level n) 2)))
+
+(defun node-get (n x y)
+  (cond ((or (< x 0) (< y 0)
+	     (>= x (node-width n)) (>= y (node-width n))) 0)
+	((zerop (node-level n)) (node-id n))
+	(t (let ((half (ash (node-width n) -1)))
+	     (if (< x half)
+		 (if (< y half)
+		     (node-get (node-nw n) x y)
+		     (node-get (node-sw n) x (- y half)))
+		 (if (< y half)
+		     (node-get (node-ne n) (- x half) y)
+		     (node-get (node-se n) (- x half) (- y half))))))))
+
+(defun node-get-list (n origx origy &optional rect)
+  (let ((width (node-width n))
+	(half (ash (node-width n) -1)))
+    (when rect
+      (destructuring-bind (x0 y0 x1 y1) rect
+	(when (or (< x1 origx) (< y1 origy)
+		  (<= (+ origx width) x0) (<= (+ origy width) y0))
+	  (return-from node-get-list nil))))
+    (cond
+      ((zerop (node-level n))
+       (if (= 1 (node-id n))
+	   (list (list origx origy))
+	   nil))
+      (t (append
+	  (node-get-list (node-nw n) origx origy rect)
+	  (node-get-list (node-ne n) (+ origx half) origy rect)
+	  (node-get-list (node-sw n) origx (+ origy half) rect)
+	  (node-get-list (node-se n) (+ origx half) (+ origy half) rect))))))
+
+(defun node-set (n new origx origy x y)
+  (let ((width (node-width n))
+	(half  (ash (node-width n) -1))
+	(b     (node-board n)))
+    (if (or (< x origx) (< y origy)
+	    (<= (+ origx width) x) (<= (+ origy width) y))
+	(error "node-set out of range: ~a" (list x y))
+	(if (zerop (node-level n))
+	    (if new (board-one b) (board-zero b))
+	    (let ((nw (node-nw n))
+		  (ne (node-ne n))
+		  (sw (node-sw n))
+		  (se (node-se n)))
+	      (if (< y (+ origy half))
+		  (if (< x (+ origx half))
+		      (board-get-node b (node-set nw new origx origy x y) ne sw se)
+		      (board-get-node b nw (node-set ne new (+ origx half) origy x y) sw se))
+		  (if (< x (+ origx half))
+		      (board-get-node b nw ne (node-set sw new origx (+ origy half) x y) se)
+		      (board-get-node b nw ne sw (node-set se new (+ origx half) (+ origy half) x y)))))))))
 
 (defun node-next-center% (n step)
   (cond ((zerop step) (n4 n))
@@ -252,10 +256,6 @@ n6 n7 n8"
 	   (incf (car (board-origin b)) (* (mod   pos 3) (ash (node-width (board-root b)) -1)))
 	   (incf (cdr (board-origin b)) (* (floor pos 3) (ash (node-width (board-root b)) -1)))))))))
 
-(defmacro while (pred &body body)
-  `(loop (unless ,pred (return))
-      ,@body))
-
 (defun board-trim (b)
   (while (board-trim% b)))
 
@@ -293,9 +293,9 @@ n6 n7 n8"
 	  (decf (cdr (board-origin b)) 1)
 	  (setf (board-root b)
 		(if (zerop (node-population n))
-		    (board-get-empty b 1)
+		    (board-get-empty-node b 1)
 		    (gethash (hash4 0 0 0 1) (board-cache b)))))
-	(let ((e (board-get-empty b (1- (node-level (board-root b))))))
+	(let ((e (board-get-empty-node b (1- (node-level (board-root b))))))
 	  (decf (car (board-origin b)) (ash (node-width n) -1))
 	  (decf (cdr (board-origin b)) (ash (node-width n) -1))
 	  (setf (board-root b)
