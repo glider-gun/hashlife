@@ -366,11 +366,13 @@ n6 n7 n8"
 
 ;;;; gui codes
 
-#-quicklisp
-(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
-                                       (user-homedir-pathname))))
-  (when (probe-file quicklisp-init)
-    (load quicklisp-init)))
+(eval-when (:execute :compile-toplevel :load-toplevel)
+  #-quicklisp
+  (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+					 (user-homedir-pathname))))
+    (when (probe-file quicklisp-init)
+      (load quicklisp-init)))
+)
 (let ((*standard-output* (make-broadcast-stream)))
   (ql:quickload :lispbuilder-sdl))
 
