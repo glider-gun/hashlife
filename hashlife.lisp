@@ -15,6 +15,11 @@ exit
 
 
 ;;;; cores
+(defun life-rule (self count)
+  (if (if self
+	  (member count '(2 3))
+	  (= count 3))
+      1 0))
 
 ;; structs and utilities
 (defstruct node
@@ -25,12 +30,6 @@ exit
 
 (defun hash4 (a b c d)
   (sxhash (list a b c d)))
-
-(defun life-rule (self count)
-  (if (if self
-	  (member count '(2 3))
-	  (= count 3))
-      1 0))
 
 (defmacro while (pred &body body)
   `(loop (unless ,pred (return))
