@@ -680,8 +680,18 @@ n6 n7 n8"
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
   ;; glidergun
-  (life 800 600 1 (lambda ()
-		    (read-rle *board* (cadr sb-ext:*posix-argv*))))
+  (life 800 600 1
+	(cond ((null (cadr sb-ext:*posix-argv*))
+	       (drawer-shape
+		(list (list 200 200
+			    (rotate-shape *puffer-train*)))))
+	      ((string-equal "rle" (pathname-type (cadr sb-ext:*posix-argv*)))
+	       (lambda ()
+		 (read-rle *board* (cadr sb-ext:*posix-argv*))))
+	      ((string-equal "lif" (pathname-type (cadr sb-ext:*posix-argv*)))
+	       (lambda ()
+		 (read-lif *board* (cadr sb-ext:*posix-argv*))))
+	      (t (error "not know file type: ~a" (cadr sb-ext:*posix-argv*)))))
     )
 
 
@@ -754,6 +764,26 @@ n6 n7 n8"
 			 (1 (dotimes (i (cdr r))
 			      (board-set board t curx cury)
 			      (incf curx)))))))))))
+    (list x y maxx cury)))
+
+(defun read-lif (board filename)
+  (let ((x 0) (y 0) (curx 0) (cury 0) (maxx 0))
+    (with-open-file (s filename)
+      (loop for l = (read-line s nil nil)
+	 while l do
+	   (unless (or (zerop (length l))
+		     (char= (char l 0) #\#))
+	     (with-input-from-string (s l)
+	       (loop for r = (read-char s nil :eol)
+		  while r do
+		    (case r
+		      (:eol (setf maxx (max maxx curx)
+				  curx x)
+			    (incf cury)
+			    (return))
+		      (#\. (incf curx))
+		      (#\* (board-set board t curx cury)
+			   (incf curx))))))))
     (list x y maxx cury)))
 
 
