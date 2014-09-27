@@ -248,6 +248,7 @@ n6 n7 n8"
 	   (not (zerop (node-level (board-root b))))
 	 (setf (board-root b) (board-zero b)
 	       (board-origin b) (cons 0 0))))
+      ((< (node-level (board-root b)) 2) nil)
       (t
        (let* ((subquads (sub-quad-list (board-root b)))
 	      (pos (position pop (mapcar #'node-population subquads))))
