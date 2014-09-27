@@ -414,6 +414,7 @@ n6 n7 n8"
 	(mouse-state (make-hash-table))
 	(prevpos nil)
 	(update t)
+	(stopping nil)
 	(step-size 1)
 	(generation 0))
 
@@ -466,6 +467,7 @@ n6 n7 n8"
 			   ;; (fresh-line) (princ mod) (princ key) (finish-output)
 			   (case key
 			     (:sdl-key-q    (sdl:push-quit-event))
+			     (:sdl-key-space (setf stopping (not stopping)))
 			     (:sdl-key-c    (board-clear *board*))
 			     (:sdl-key-minus
 			      (if (zerop (logand 192 mod)) ;ctrl
@@ -525,7 +527,7 @@ n6 n7 n8"
 		(setf prevpos (list x y)))))
 	  (:idle ()
 		 (sdl:clear-display sdl:*black*)
-		 (when update
+		 (when (and update (not stopping))
 		     (board-step *board* step-size)
 		     (if (> (node-level (board-root *board*)) 20)
 		       (board-collect *board*)
