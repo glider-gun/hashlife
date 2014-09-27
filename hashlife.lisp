@@ -202,6 +202,7 @@ n6 n7 n8"
 		      (board-get-node b nw ne (node-set sw new origx (+ origy half) x y) se)
 		      (board-get-node b nw ne sw (node-set se new (+ origx half) (+ origy half) x y)))))))))
 
+(declaim (ftype (function (node fixnum) node) node-next-center))
 (defun node-next-center% (n step)
   (cond ((zerop step) (n4 n))
 	((<= step (node-step-size n))
