@@ -767,24 +767,35 @@ n6 n7 n8"
     (list x y maxx cury)))
 
 (defun read-lif (board filename)
-  (let ((x 0) (y 0) (curx 0) (cury 0) (maxx 0))
+  (let ((x 0) (y 0) (curx 0) (cury 0) minx miny maxx maxy)
     (with-open-file (s filename)
       (loop for l = (read-line s nil nil)
 	 while l do
-	   (unless (or (zerop (length l))
-		     (char= (char l 0) #\#))
-	     (with-input-from-string (s l)
-	       (loop for r = (read-char s nil :eol)
-		  while r do
-		    (case r
-		      (:eol (setf maxx (max maxx curx)
-				  curx x)
-			    (incf cury)
-			    (return))
-		      (#\. (incf curx))
-		      (#\* (board-set board t curx cury)
-			   (incf curx))))))))
-    (list x y maxx cury)))
+	   (unless (or (zerop (length l)))
+	     (if (char= #\# (char l 0))
+		 (when (char= #\P (char l 1))
+		   (when (= 3 (length (split-sequence:split-sequence #\Space l)))
+		     (destructuring-bind (_ x_ y_)
+			 (split-sequence:split-sequence #\Space l)
+		       (setf x (parse-integer x_)
+			     y (parse-integer y_)
+			     curx x cury y))))
+		 (with-input-from-string (s l)
+		   (loop named charloop for r = (read-char s nil :eol) do
+			(progn
+			  (when (not minx)
+			    (setf minx x miny y maxx x maxy y))
+			  (case r
+			    (:eol (setf maxx (max maxx curx)
+					curx x
+					maxy (max maxy cury))
+				  (incf cury)
+				  (return-from charloop))
+			    (#\. (incf curx))
+			    (#\* (board-set board t curx cury)
+				 (incf curx))
+			    (t (error "strange charactor found: ~a" r))))))))))
+    (list minx miny maxx maxy)))
 
 
 ;; #+sbcl(print sb-ext:*posix-argv*)
