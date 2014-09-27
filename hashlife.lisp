@@ -695,6 +695,9 @@ n6 n7 n8"
 	      ((string-equal "lif" (pathname-type (cadr sb-ext:*posix-argv*)))
 	       (lambda ()
 		 (read-lif *board* (cadr sb-ext:*posix-argv*))))
+	      ((string-equal "mc" (pathname-type (cadr sb-ext:*posix-argv*)))
+	       (lambda ()
+		 (read-mc *board* (cadr sb-ext:*posix-argv*))))
 	      (t (error "not know file type: ~a" (cadr sb-ext:*posix-argv*)))))
     )
 
@@ -724,7 +727,7 @@ n6 n7 n8"
        (setf state
 	     (case c
 	       ((#\b #\.) 0)
-	       (#\o 1)
+	       ((#\o #\*) 1)		; #\* is for .mc file
 	       (#\$ :eol)
 	       (#\! nil)
 	       (t (+ 1 add (- (char-int c) (char-int #\A))))))
@@ -801,6 +804,85 @@ n6 n7 n8"
 			    (t (error "strange charactor found: ~a" r))))))))))
     (list minx miny maxx maxy)))
 
+(defun get-2x2 (board id)
+  (gethash (hash4 (if (logbitp 0 (- id 2)) 1 0)
+		  (if (logbitp 1 (- id 2)) 1 0)
+		  (if (logbitp 2 (- id 2)) 1 0)
+		  (if (logbitp 3 (- id 2)) 1 0)) (board-cache board)))
+
+(defun safe-node-id (n?)
+  (if (node-p n?)
+      (node-id n?)
+      n?))
+
+(defun safe-node-level (n?)
+  (if (node-p n?)
+      (node-level n?)
+      n?))
+
+(defun read-mc (board filename)
+  (let ((nodes (list :dummy)))
+    (with-open-file (s filename)
+      (loop for l = (read-line s nil nil)
+	 while l do
+	   (unless (or (zerop (length l)) (char= #\[ (char l 0)))
+	     (if (char= #\# (char l 0))
+		 nil
+		 (with-input-from-string (s l)
+		   ;; (print l) (print (mapcar #'safe-node-id nodes)) (finish-output)
+		   (if (member (peek-char nil s) '(#\. #\* #\$))
+		       (push
+			(let ((a (make-array '(4 4) :initial-element 2))
+			      (x 0) (y 0))
+			  (loop named charloop for r = (read-a-value s)
+			     while r do
+			       (case (car r)
+				 (:eol (setf x 0) (incf y))
+				 (0 (incf x))
+				 (1 (incf (aref a (floor x 2) (floor y 2))
+					  (ash 1 (+ (mod x 2) (* 2 (mod y 2)))))
+				    (incf x))))
+			  (let ((nw (board-get-node board
+						    (get-2x2 board (aref a 0 0))
+						    (get-2x2 board (aref a 1 0))
+						    (get-2x2 board (aref a 0 1))
+						    (get-2x2 board (aref a 1 1))))
+				(ne (board-get-node board
+						    (get-2x2 board (aref a 2 0))
+						    (get-2x2 board (aref a 3 0))
+						    (get-2x2 board (aref a 2 1))
+						    (get-2x2 board (aref a 3 1))))
+				(sw (board-get-node board
+						    (get-2x2 board (aref a 0 2))
+						    (get-2x2 board (aref a 1 2))
+						    (get-2x2 board (aref a 0 3))
+						    (get-2x2 board (aref a 1 3))))
+				(se (board-get-node board
+						    (get-2x2 board (aref a 2 2))
+						    (get-2x2 board (aref a 3 2))
+						    (get-2x2 board (aref a 2 3))
+						    (get-2x2 board (aref a 3 3)))))
+			    (board-get-node board nw ne sw se)))
+			nodes)
+		       (let* ((tmp
+			       (mapcar #'parse-integer
+				       (split-sequence:split-sequence #\space l)))
+			      (level (car tmp))
+			      (children (mapcar
+					 (lambda (x)
+					   (if (zerop x)
+					       (board-get-empty-node board (1- level))
+					       (nth (- (length nodes) x 1) nodes)))
+					 (cdr tmp))))
+			 ;; (print (mapcar #'safe-node-id children))
+			 ;; (princ (mapcar #'safe-node-level children))
+			 (push (apply #'board-get-node board children) nodes))))))))
+    (setf (board-root   board) (car nodes)
+	  (board-origin board) '(0 . 1))
+
+    (list 0 1
+	  (ash 1 (node-level (board-root board)))
+	  (1+ (ash 1 (node-level (board-root board)))))))
 
 ;; #+sbcl(print sb-ext:*posix-argv*)
 (defun main ()
