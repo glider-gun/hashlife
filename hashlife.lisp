@@ -430,8 +430,8 @@ n6 n7 n8"
 	     (draw-cell (x y color)
 	       (sdl:draw-box (sdl:rectangle :x (floor (* scale (- x origx)))
 					    :y (floor (* scale (- y origy)))
-					    :w (max scale 1)
-					    :h (max scale 1))
+					    :w (max (round scale) 1)
+					    :h (max (round scale) 1))
 			               :color color))
 	     (draw-node (n localorigx localorigy) ; draw recursively
 	       (when (and (not (zerop (node-population n)))
