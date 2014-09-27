@@ -1,7 +1,7 @@
 #!/bin/bash # -*-Lisp-*-
 #|
 # http://speely.wordpress.com/2010/11/27/writing-scripts-with-common-lisp/ 
-exec sbcl --dynamic-space-size 4Gb --script $0 # hashlife consumes much memory
+exec sbcl --dynamic-space-size 4Gb --script $0 "$@" # hashlife consumes much memory
 exit
 |#
 
@@ -671,7 +671,7 @@ n6 n7 n8"
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
     )
 
-
+;; #+sbcl(print sb-ext:*posix-argv*)
 (defun main ()
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
     #-sbcl (run)
