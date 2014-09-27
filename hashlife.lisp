@@ -438,6 +438,7 @@ n6 n7 n8"
 					    :w (max (round scale) 1)
 					    :h (max (round scale) 1))
 			               :color color))
+               )
 	     (draw-node (n localorigx localorigy) ; draw recursively
 	       (when (and (not (zerop (node-population n)))
 		          (< localorigx (+ origx world-width))
