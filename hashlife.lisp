@@ -679,9 +679,9 @@ n6 n7 n8"
     ;; 				  (rotate-shape *puffer-train*)))))
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
-  ;; glidergun
   (life 800 600 1
 	(cond ((null (cadr sb-ext:*posix-argv*))
+	       ;; puffer train
 	       (drawer-shape
 		(list (list 200 200
 			    (rotate-shape *puffer-train*)))))
