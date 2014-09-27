@@ -374,7 +374,8 @@ n6 n7 n8"
       (load quicklisp-init)))
 )
 (let ((*standard-output* (make-broadcast-stream)))
-  (ql:quickload :lispbuilder-sdl))
+  (ql:quickload :lispbuilder-sdl)
+  (ql:quickload :split-sequence))
 
 (defun reverse-shape-v (shape)
   (reverse shape))
@@ -402,7 +403,7 @@ n6 n7 n8"
 
 (defparameter *board* nil)
 
-(defun life (world-width world-height scale shapes)
+(defun life (world-width world-height scale drawer)
   (setf *board* (init-board))
   (let ((scale scale)
 	(w (* world-width scale))
@@ -415,8 +416,11 @@ n6 n7 n8"
 	(step-size 1)
 	(generation 0))
 
-    (loop for (x y s) in shapes do
-	 (board-put-shape *board* s x y))
+    (let ((result (funcall drawer)))
+      (when result
+	(destructuring-bind (x0 y0 x1 y1) result
+	  (setf origx (floor (- (+ x0 x1) world-width) 2)
+		origy (floor (- (+ y0 y1) world-height) 2)))))
 	 
     (labels ((get-rect ()
 	       (list origx origy (+ origx (floor w scale)) (+ origy (floor h scale))))
@@ -652,6 +656,11 @@ n6 n7 n8"
 (defparameter *pentadecathlon*
   '("OOOOOOOOOO"))
 
+(defun drawer-shape (shapes)
+  (lambda ()
+    (loop for (x y s) in shapes do
+	 (board-put-shape *board* s x y))))
+
 (defun run ()
     ;; ;; r-pentomino
     ;; (life 400 400 3 (list (list 200 200 *r-pentomino*)))
@@ -664,12 +673,89 @@ n6 n7 n8"
     ;;         (96 101 ,gun-lu)
     ;;         (220 75 ,eater)
     ;;         ))
-    ;; puffer-train
-    (life 1900 400 1 (list (list 200 200
-                                 (rotate-shape *puffer-train*))))
+    ;; ;; puffer-train
+    ;; (life 1900 400 1 (drawer-shape
+    ;; 		      (list (list 200 200
+    ;; 				  (rotate-shape *puffer-train*)))))
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
+  ;; glidergun
+  (life 800 600 1 (lambda ()
+		    (read-rle *board* (cadr sb-ext:*posix-argv*))))
     )
+
+
+
+(defun read-a-value (s)
+  (let ((c (read-char s nil :eof))
+	(num 1)
+	(chars nil)
+	(add 0)
+	(state nil))
+    (case c
+      (:eof nil)
+      (#\Newline (read-a-value s))
+      (t
+       ;; number
+       (while (char<= #\0 c #\9)
+	 (push c chars)
+	 (setf c (read-char s)))
+       (when chars
+	 (setf num (parse-integer (coerce (nreverse chars) 'string))
+	       chars nil))
+       ;; state
+       (when (char<= #\p c #\y)
+	 (setf add (* 24 (- (char-int c) (char-int #\o))))
+	 (setf c (read-char s)))
+       (setf state
+	     (case c
+	       ((#\b #\.) 0)
+	       (#\o 1)
+	       (#\$ :eol)
+	       (#\! nil)
+	       (t (+ 1 add (- (char-int c) (char-int #\A))))))
+       (cons state num)))))
+
+(defun read-rle (board filename)
+  (let ((state 'header)
+	x y curx cury maxx)
+    (with-open-file (s filename)
+      (loop for l = (read-line s nil nil)
+	 while l do
+	   (unless (or (zerop (length l))
+		     (char= (char l 0) #\#))
+	     (case state
+	       (header
+		(let* ((specs (mapcar
+			       (lambda (s) (split-sequence:split-sequence #\= s))
+			       (split-sequence:split-sequence
+				#\, (remove #\space l)))))
+		  ;; (print specs)
+		  (when (not (string-equal
+			      "B3/S23"
+			      (cadr (assoc "rule" specs :test #'string-equal))))
+		    (error "can't use rule ~A"
+			   (cadr (assoc "rule" specs :test #'string-equal))))
+		  (setf x (parse-integer
+			   (cadr (assoc "x" specs :test #'string-equal)))
+			y (parse-integer
+			   (cadr (assoc "y" specs :test #'string-equal)))
+			curx x cury y maxx x)
+		  (setf state 'body)))
+	       (body
+		(with-input-from-string (s l)
+		  (loop for r = (read-a-value s)
+		       while r do
+		       (case (car r)
+			 (:eol (setf maxx (max maxx curx)
+				     curx x)
+			       (incf cury (cdr r)))
+			 (0 (incf curx (cdr r)))
+			 (1 (dotimes (i (cdr r))
+			      (board-set board t curx cury)
+			      (incf curx)))))))))))
+    (list x y maxx cury)))
+
 
 ;; #+sbcl(print sb-ext:*posix-argv*)
 (defun main ()
@@ -678,3 +764,5 @@ n6 n7 n8"
     )
 
 (main)
+
+;; /hashlife.lisp ~/Downloads/golly-2.6-mac109/Patterns/Life/Breeders/LWSS-breeder.rle
