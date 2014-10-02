@@ -664,6 +664,10 @@ n6 n7 n8"
     (loop for (x y s) in shapes do
 	 (board-put-shape *board* s x y))))
 
+(defun args ()
+  #+clozure (ccl::command-line-arguments)
+  #+sbcl sb-ext:*posix-argv*)
+
 (defun run ()
     ;; ;; r-pentomino
     ;; (life 400 400 3 (list (list 200 200 *r-pentomino*)))
@@ -683,21 +687,21 @@ n6 n7 n8"
     ;; ;; pentadecathlon
     ;; (life 20 20 3 `((5 10 ,*pentadecathlon*)))
   (life 800 600 1
-	(cond ((null (cadr sb-ext:*posix-argv*))
+	(cond ((null (cadr (args)))
 	       ;; puffer train
 	       (drawer-shape
 		(list (list 200 200
 			    (rotate-shape *puffer-train*)))))
-	      ((string-equal "rle" (pathname-type (cadr sb-ext:*posix-argv*)))
+	      ((string-equal "rle" (pathname-type (cadr (args))))
 	       (lambda ()
-		 (read-rle *board* (cadr sb-ext:*posix-argv*))))
-	      ((string-equal "lif" (pathname-type (cadr sb-ext:*posix-argv*)))
+		 (read-rle *board* (cadr (args)))))
+	      ((string-equal "lif" (pathname-type (cadr (args))))
 	       (lambda ()
-		 (read-lif *board* (cadr sb-ext:*posix-argv*))))
-	      ((string-equal "mc" (pathname-type (cadr sb-ext:*posix-argv*)))
+		 (read-lif *board* (cadr (args)))))
+	      ((string-equal "mc" (pathname-type (cadr (args))))
 	       (lambda ()
-		 (read-mc *board* (cadr sb-ext:*posix-argv*))))
-	      (t (error "not know file type: ~a" (cadr sb-ext:*posix-argv*)))))
+		 (read-mc *board* (cadr (args)))))
+	      (t (error "not know file type: ~a" (cadr (args))))))
     )
 
 
@@ -883,7 +887,7 @@ n6 n7 n8"
 	  (ash 1 (node-level (board-root board)))
 	  (1+ (ash 1 (node-level (board-root board)))))))
 
-;; #+sbcl(print sb-ext:*posix-argv*)
+;; (print (args))
 (defun main ()
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
     #-sbcl (run)
