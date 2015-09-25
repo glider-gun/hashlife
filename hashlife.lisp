@@ -1,9 +1,10 @@
-#!/bin/bash # -*-Lisp-*-
-#|
-# http://speely.wordpress.com/2010/11/27/writing-scripts-with-common-lisp/ 
-exec sbcl --dynamic-space-size 4Gb --script $0 "$@" # hashlife consumes much memory
-exit
-|#
+#!/usr/bin/env sbql --dynamic-space-size 4Gb --script
+;; #!/bin/bash # -*-Lisp-*-
+;; #|
+;; # http://speely.wordpress.com/2010/11/27/writing-scripts-with-common-lisp/ 
+;; exec sbcl --dynamic-space-size 4Gb --script $0 "$@" # hashlife consumes much memory
+;; exit
+;; |#
 
 ;; for debug
 ;; (declaim (optimize (debug 3) (safety 3)
@@ -29,7 +30,7 @@ exit
   root cache origin next-id empty-nodes zero one)
 
 (defun hash4 (a b c d)
-  (sxhash (list a b c d)))
+  (list a b c d))
 
 (defmacro while (pred &body body)
   `(loop (unless ,pred (return))
@@ -37,7 +38,7 @@ exit
 
 ;; functions for node/board
 (defun init-board ()
-  (let ((b (make-board :cache (make-hash-table :test #'eql)
+  (let ((b (make-board :cache (make-hash-table :test #'equalp)
 		       :origin (cons 0 0))))
     (let ((zero (make-node :level 0 :id 0 :population 0 :board b))
 	  (one  (make-node :level 0 :id 1 :population 1 :board b))
@@ -54,7 +55,7 @@ exit
 			    :ne (if (logbitp 1 i) one zero)
 			    :sw (if (logbitp 2 i) one zero)
 			    :se (if (logbitp 3 i) one zero)
-			    :result (list nil))))
+			    :result (vector nil))))
       (setf (board-zero b)        zero
 	    (board-one  b)        one
 	    (board-next-id b)     18
@@ -264,7 +265,7 @@ n6 n7 n8"
   (board-trim b)
   (let ((old (board-cache b)))
     (setf (board-empty-nodes b) (list (board-zero b))
-	  (board-cache b) (make-hash-table :test #'eql))
+	  (board-cache b) (make-hash-table :test #'equalp))
     (labels ((canonicalize (n to)
 	       (if (< (node-id n) 16)
 		   n
@@ -415,6 +416,9 @@ n6 n7 n8"
 	(prevpos nil)
 	(update t)
 	(stopping nil)
+	(currently-fullscreen? nil)
+	(video-w)
+	(video-h)
 	(step-size 1)
 	(generation 0))
 
@@ -432,12 +436,32 @@ n6 n7 n8"
 	     (display-coodinate (x y)
 	       (list (* scale (- x origx))
 		     (* scale (- y origy))))
+	     (toggle-fullscreen ()
+	        (if currently-fullscreen?
+		    (progn
+		      (setf w (car currently-fullscreen?)
+			    h (cdr currently-fullscreen?)
+			    currently-fullscreen? nil
+			    world-width  (floor w scale)
+			    world-height (floor h scale))
+		      (sdl:resize-window w h :sw t :resizable t))
+		  (progn 
+		      (setf currently-fullscreen? (cons w h)
+			    w video-w
+			    h video-h
+			    world-width  (floor w scale)
+			    world-height (floor h scale))
+		      (sdl:resize-window w h :sw t :fullscreen t))))
 	     (draw-cell (x y color)
-	       (sdl:draw-box (sdl:rectangle :x (floor (* scale (- x origx)))
-					    :y (floor (* scale (- y origy)))
-					    :w (max (round scale) 1)
-					    :h (max (round scale) 1))
-			               :color color))
+	       (if (> scale 1)
+		   (sdl:draw-box (sdl:rectangle :x (floor (* scale (- x origx)))
+						:y (floor (* scale (- y origy)))
+						:w (round scale)
+						:h (round scale))
+				 :color color)
+		   (sdl:draw-pixel-* (floor (* scale (- x origx)))
+				     (floor (* scale (- y origy)))
+				     :color color)))
 	     (draw-node (n localorigx localorigy) ; draw recursively
 	       (when (and (not (zerop (node-population n)))
 		          (< localorigx (+ origx world-width))
@@ -453,41 +477,52 @@ n6 n7 n8"
 		       (draw-node (node-sw n) localorigx (+ localorigy half))
 		       (draw-node (node-se n) (+ localorigx half) (+ localorigy half))))))
 )
-      (sdl:with-init ()
-	(sdl:window w h :title-caption "life" :resizable t)
+      (sdl:with-init (sdl:sdl-init-video)
+	(destructuring-bind (w h) (coerce (sdl:video-dimensions) 'list)
+	  (setf video-w w video-h h))
+	(sdl:window w h :sw t :async-blit t :title-caption "life" :resizable t)
 	(setf (sdl:frame-rate) 60)
 	(sdl:enable-key-repeat 500 20)
 
 	(sdl:with-events ()
 	  (:quit-event () t)
 	  (:video-resize-event (:w w_ :h h_)
-			       (setf w w_ h h_)
+			       (setf w w_ h h_
+				     world-width  (floor w scale)
+				     world-height (floor h scale))
 			       (sdl:resize-window w h)) ;'window size' is logical (pixel) size?
 	  (:key-down-event (:key key :mod mod)
 			   ;; (fresh-line) (princ mod) (princ key) (finish-output)
 			   (case key
 			     (:sdl-key-q    (sdl:push-quit-event))
+			     (:sdl-key-f    (toggle-fullscreen))
 			     (:sdl-key-space (setf stopping (not stopping)))
 			     (:sdl-key-c    (board-clear *board*))
-			     (:sdl-key-minus
-			      (if (zerop (logand 192 mod)) ;ctrl
-				  (when (not (= step-size 1))
-				    (setf step-size (/ step-size 2)))
-				  (setf scale (/ scale 2)
-					origx (- origx (floor (/ w scale) 4))
-					origy (- origy (floor (/ h scale) 4))
-					world-width  (floor w scale)
-					world-height (floor h scale))))
-			     (:sdl-key-equals
-			      (if (zerop (logand 192 mod))
-				  (setf step-size (* step-size 2))
-				  (setf scale (* scale 2)
-					origx (+ origx (floor (/ w scale) 2))
-					origy (+ origy (floor (/ h scale) 2))))
-					world-width  (floor w scale)
-					world-height (floor h scale))
-			     (:sdl-key-up   (decf origy (floor (/ 50 scale))))
-			     (:sdl-key-down (incf origy (floor (/ 50 scale))))
+			     (:sdl-key-up
+			      (cond
+			       ((not (zerop (logand 3 mod))) ; shift
+				(setf step-size (* step-size 2)))
+			       ((not (zerop (logand 192 mod))) ; ctrl
+				(setf scale (* scale 2)
+				      origx (+ origx (floor (/ w scale) 2))
+				      origy (+ origy (floor (/ h scale) 2))
+				      world-width  (floor w scale)
+				      world-height (floor h scale)))
+			       (t
+				(decf origy (floor (/ 50 scale))))))
+			     (:sdl-key-down
+			      (cond
+			       ((not (zerop (logand 3 mod)))
+				(when (not (= step-size 1))
+				  (setf step-size (/ step-size 2))))
+			       ((not (zerop (logand 192 mod)))
+				(setf scale (/ scale 2)
+				      origx (- origx (floor (/ w scale) 4))
+				      origy (- origy (floor (/ h scale) 4))
+				      world-width  (floor w scale)
+				      world-height (floor h scale)))
+			       (t
+				(incf origy (floor (/ 50 scale))))))
 			     (:sdl-key-right (incf origx (floor (/ 50 scale))))
 			     (:sdl-key-left (decf origx (floor (/ 50 scale))))
 			     ))
@@ -665,7 +700,8 @@ n6 n7 n8"
 	 (board-put-shape *board* s x y))))
 
 (defun args ()
-  #+clozure (ccl::command-line-arguments)
+  #+clozure (let ((a (ccl::command-line-arguments)))
+	      (nthcdr (position "--" a :test #'string-equal) a))
   #+sbcl sb-ext:*posix-argv*)
 
 (defun run ()
@@ -787,6 +823,7 @@ n6 n7 n8"
 		   (when (= 3 (length (split-sequence:split-sequence #\Space l)))
 		     (destructuring-bind (_ x_ y_)
 			 (split-sequence:split-sequence #\Space l)
+		       (declare (ignore _))
 		       (setf x (parse-integer x_)
 			     y (parse-integer y_)
 			     curx x cury y))))
@@ -889,6 +926,16 @@ n6 n7 n8"
 
 ;; (print (args))
 (defun main ()
+  (cffi:define-foreign-library sdl
+      (:darwin (:or (:framework "SDL")
+		    (:default "libSDL")))
+    (:windows "SDL.dll")
+    (:unix (:or "libSDL-1.2.so.0.7.2"
+		"libSDL-1.2.so.0"
+		"libSDL-1.2.so"
+		"libSDL.so"
+		"libSDL")))
+  
     #+sbcl(sb-int:with-float-traps-masked (:invalid) (run))
     #-sbcl (run)
     )
@@ -896,3 +943,6 @@ n6 n7 n8"
 (main)
 
 ;; /hashlife.lisp ~/Downloads/golly-2.6-mac109/Patterns/Life/Breeders/LWSS-breeder.rle
+
+;; sbcl --script hashlife.lisp ~/Downloads/golly-2.6-mac109/Patterns/Life/Breeders/LWSS-breeder.rle
+;; ccl-single-thread -l hashlife.lisp -e '(quit)' -- ~/Downloads/golly-2.6-mac109/Patterns/Life/Breeders/LWSS-breeder.rle
