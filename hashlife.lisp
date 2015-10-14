@@ -1,4 +1,4 @@
-#!/usr/bin/env sbql --dynamic-space-size 4Gb --script
+#!/usr/bin/env sbcl --dynamic-space-size 4Gb --script
 ;; #!/bin/bash # -*-Lisp-*-
 ;; #|
 ;; # http://speely.wordpress.com/2010/11/27/writing-scripts-with-common-lisp/ 
